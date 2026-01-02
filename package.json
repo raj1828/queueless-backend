@@ -1,0 +1,11 @@
+{
+  "name": "queueless-backend",
+  "version": "1.0.0",
+  "description": "queueless is a solution for waiting in long queue",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Raj Mhatre",
+  "license": "ISC"
+}
