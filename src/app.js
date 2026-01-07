@@ -2,7 +2,8 @@ import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 
-import authRoutes  from "./modules/auth/auth.route.js";
+import authRoutes from "./modules/auth/auth.route.js";
+import businessRoutes from "./modules/business/business.route.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 
 const app = express();
@@ -18,6 +19,7 @@ if (process.env.NODE_ENV === "development") {
 
 /* -------------------- Routes -------------------- */
 app.use("/api/auth", authRoutes);
+app.use("/api/business", businessRoutes);
 
 /* -------------------- Health Check -------------------- */
 app.get("/health", (req, res) => {

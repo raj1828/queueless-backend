@@ -6,3 +6,24 @@ export const allowRoles = (...roles) => {
     next();
   };
 };
+
+export const roleCheck = (...allowRoles) => {
+  return (req, res, next) => {
+    if(!req.user || !req.user.role){
+      return res.status(403).json({
+        success: false,
+        message: "Access denied"
+      });
+    }
+
+    if(!allowRoles.includes(req.user.role)){
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to perform this action"
+      });
+    }
+
+    next();
+  }
+
+}

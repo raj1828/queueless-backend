@@ -1,0 +1,4 @@
+export const BUSINESS_SUBSCRIPTION_PLANS = {
+    MONTHLY: 'MONTHLY',
+    YEARLY: 'YEARLY'
+}
