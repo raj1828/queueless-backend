@@ -128,11 +128,21 @@ export const verifyRegisterOTP = async (userId, otp) => {
 // };
 
 export const loginUser = async (email, password) => {
-  const user = await User.findOne({ email });
-  if (!user) throw new Error("Invalid credentials");
+  const user = await User.findOne({ email }).select("+password");
+
+  if (!user) {
+    throw new Error("Invalid credentials");
+  }
+
+  if (!user.password) {
+    throw new Error("Password not set");
+  }
 
   const isMatch = await comparePassword(password, user.password);
-  if (!isMatch) throw new Error("Invalid credentials");
+
+  if (!isMatch) {
+    throw new Error("Invalid credentials");
+  }
 
   const otp = generateOTP();
   await saveOtp(user._id, otp);
