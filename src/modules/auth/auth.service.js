@@ -1,4 +1,5 @@
 import User from "../../models/user.model.js";
+import { sendOTPEmail, sendWelcomeEmail } from "../../services/email.service.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -11,12 +12,23 @@ import { generateOTP, saveOtp, verifyOTP } from "./otp.service.js";
 /*                               HELPER METHODS                               */
 /* -------------------------------------------------------------------------- */
 
-const sendOTP = async (userId, purpose = "AUTH") => {
+const sendOTP = async (userId, email, purpose = "AUTH") => {
   const otp = generateOTP();
   await saveOtp(userId, otp);
-
-  // 🔔 Replace with Email/SMS service
-  console.log(`${purpose} OTP:`, otp);
+  
+  // Send OTP via email
+  try {
+    await sendOTPEmail(email, otp, purpose);
+  } catch (error) {
+    console.error('Failed to send OTP email:', error);
+    // You can choose to throw error or continue (for development)
+    // For production, you might want to throw the error
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Failed to send OTP. Please try again later.');
+    } else {
+      console.log(`${purpose} OTP (fallback):`, otp);
+    }
+  }
 };
 
 const getUserByEmail = async (email, includePassword = false) => {
@@ -54,14 +66,12 @@ export const registerUser = async (data) => {
     isVerified: false,
   });
 
-  const otp = generateOTP();
-  await saveOtp(user._id, otp);
-
-  console.log("REGISTER OTP:", otp);
+  // Send OTP via email
+  await sendOTP(user._id, email, "REGISTER");
 
   return {
     userId: user._id,
-    message: "Registration successful. Please verify OTP.",
+    message: "Registration successful. Please check your email for OTP.",
   };
 };
 
@@ -71,7 +81,16 @@ export const verifyRegisterOTP = async (userId, otp) => {
     throw new Error("Invalid or expired OTP");
   }
 
-  await User.findByIdAndUpdate(userId, { isVerified: true });
+  const user = await User.findByIdAndUpdate(
+    userId, 
+    { isVerified: true },
+    { new: true }
+  );
+
+  // Send welcome email after successful verification
+  if (user) {
+    await sendWelcomeEmail(user.email, user.name || user.email);
+  }
 
   return {
     message: "Account verified successfully",
@@ -97,11 +116,11 @@ export const loginUser = async (email, password) => {
     throw new Error("Invalid credentials");
   }
 
-  await sendOTP(user._id, "LOGIN");
+  await sendOTP(user._id, email, "LOGIN");
 
   return {
     userId: user._id,
-    message: "OTP sent for login verification",
+    message: "OTP sent to your email for login verification",
   };
 };
 
@@ -126,5 +145,45 @@ export const verifyLoginOTP = async (userId, otp) => {
     accessToken,
     refreshToken,
     role: user.role,
+  };
+};
+
+// Add password reset functionality
+export const requestPasswordReset = async (email) => {
+  const user = await getUserByEmail(email);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  await sendOTP(user._id, email, "RESET_PASSWORD");
+
+  return {
+    userId: user._id,
+    message: "Password reset OTP sent to your email",
+  };
+};
+
+export const resetPassword = async (userId, otp, newPassword) => {
+  const isValid = await verifyOTP(userId, otp);
+  if (!isValid) {
+    throw new Error("Invalid or expired OTP");
+  }
+
+  if (!strongPassword(newPassword)) {
+    throw new Error(
+      "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character."
+    );
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  user.password = await hashPassword(newPassword);
+  await user.save();
+
+  return {
+    message: "Password reset successful",
   };
 };
