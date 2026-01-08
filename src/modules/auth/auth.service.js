@@ -1,5 +1,8 @@
 import User from "../../models/user.model.js";
-import { sendOTPEmail, sendWelcomeEmail } from "../../services/email.service.js";
+import {
+  sendOTPEmail,
+  sendWelcomeEmail,
+} from "../../services/email.service.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -15,16 +18,16 @@ import { generateOTP, saveOtp, verifyOTP } from "./otp.service.js";
 const sendOTP = async (userId, email, purpose = "AUTH") => {
   const otp = generateOTP();
   await saveOtp(userId, otp);
-  
+
   // Send OTP via email
   try {
     await sendOTPEmail(email, otp, purpose);
   } catch (error) {
-    console.error('Failed to send OTP email:', error);
+    console.error("Failed to send OTP email:", error);
     // You can choose to throw error or continue (for development)
     // For production, you might want to throw the error
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('Failed to send OTP. Please try again later.');
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Failed to send OTP. Please try again later.");
     } else {
       console.log(`${purpose} OTP (fallback):`, otp);
     }
@@ -82,7 +85,7 @@ export const verifyRegisterOTP = async (userId, otp) => {
   }
 
   const user = await User.findByIdAndUpdate(
-    userId, 
+    userId,
     { isVerified: true },
     { new: true }
   );
@@ -101,27 +104,52 @@ export const verifyRegisterOTP = async (userId, otp) => {
 /*                                LOGIN FLOW                                  */
 /* -------------------------------------------------------------------------- */
 
-export const loginUser = async (email, password) => {
-  const user = await getUserByEmail(email, true);
-  if (!user) {
-    throw new Error("Invalid credentials");
-  }
+// export const loginUser = async (email, password) => {
+//   const user = await getUserByEmail(email, true);
+//   if (!user) {
+//     throw new Error("Invalid credentials");
+//   }
 
-  if (!user.isVerified) {
-    throw new Error("Account not verified");
-  }
+//   if (!user.isVerified) {
+//     throw new Error("Account not verified");
+//   }
+
+//   const isMatch = await comparePassword(password, user.password);
+//   if (!isMatch) {
+//     throw new Error("Invalid credentials");
+//   }
+
+//   await sendOTP(user._id, email, "LOGIN");
+
+//   return {
+//     userId: user._id,
+//     message: "OTP sent to your email for login verification",
+//   };
+// };
+
+export const loginUser = async (email, password) => {
+  const user = await User.findOne({ email });
+  if (!user) throw new Error("Invalid credentials");
 
   const isMatch = await comparePassword(password, user.password);
-  if (!isMatch) {
-    throw new Error("Invalid credentials");
-  }
+  if (!isMatch) throw new Error("Invalid credentials");
 
-  await sendOTP(user._id, email, "LOGIN");
+  const otp = generateOTP();
+  await saveOtp(user._id, otp);
 
-  return {
+  // 🔥 SEND RESPONSE FAST
+  const response = {
+    success: true,
     userId: user._id,
-    message: "OTP sent to your email for login verification",
+    message: "OTP sent successfully",
   };
+
+  // 🔁 BACKGROUND TASK (DO NOT AWAIT)
+  sendOTPEmail(email, otp).catch(() => {
+    console.log("LOGIN OTP (fallback):", otp);
+  });
+
+  return response;
 };
 
 export const verifyLoginOTP = async (userId, otp) => {
