@@ -15,10 +15,41 @@ export const getBusinessById = async (businessId) => {
     return business;
 }
 
-export const getAllBusinesses = async () => {
-    const businesses = await Business.find();
-    return businesses;
-}
+// export const getAllBusinesses = async () => {
+//     const businesses = await Business.find();
+//     return businesses;
+// }
+
+export const getAllBusinesses = async ({
+  offset = 0,
+  limit = 10,
+  search = ""
+} = {}) => {
+  const skip = Number(offset);
+  const take = Number(limit);
+
+  const query = search
+    ? { name: { $regex: search, $options: "i" } }
+    : {};
+
+  const [businesses, total] = await Promise.all([
+    Business.find(query)
+      .skip(skip)
+      .limit(take)
+      .sort({ createdAt: -1 }),
+    Business.countDocuments(query)
+  ]);
+
+  return {
+    data: businesses,
+    pagination: {
+      total,
+      offset: skip,
+      limit: take,
+      hasMore: skip + take < total
+    }
+  };
+};
 
 export const updateBusiness = async (businessId, data) => {
     const business = await Business.findByIdAndUpdate(businessId, data)
